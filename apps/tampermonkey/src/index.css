@@ -1,0 +1,9 @@
+/* Global styles for the widget - minimal to avoid conflicts with host page */
+
+#tampermonkey-widget-root {
+  all: initial;
+  * {
+    all: unset;
+  }
+}
+
