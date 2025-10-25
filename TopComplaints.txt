@@ -1,0 +1,153 @@
+# Common Surfline App Complaints
+
+This document compiles common complaints users express about the Surfline app, 
+drawn from reviews and user forums representing surfing community sentiment.
+
+## 1. Poor Forecast Accuracy
+
+Many users say the wave size, quality or timing predictions are regularly off.
+
+- "Half of the time they're wildly off-base for the next day..." (JustUseApp)
+- "Forecast doesn't help you at all..." (Trustpilot)
+
+## 2. High Cost / Aggressive Monetisation
+
+Users complain that features previously free are now behind a paywall, and that 
+the premium subscription is expensive.
+
+- "The newest update only lets you check the surf report 4 times in a week... 
+  Pretty lame seeing how they use normal publicly available data..." (JustUseApp)
+- "They've successfully monopolized surf forecasting... exploit surfers into 
+  outrageous membership fees." (Trustpilot)
+
+## 3. Too Many Ads / Poor Free-Tier Experience
+
+Free users say they get bombarded with adverts and limited functionality, 
+making the app frustrating unless you pay.
+
+- "Ads are terrible, UI sucks... Their models are consistently wrong..." 
+  (Trustpilot)
+- "Ad riddled and too busy." (Kimola)
+
+## 4. Feature Removal / Limitation of Free Checks
+
+Some users say the app now restricts how many "surf-checks" or cams you can 
+view as a free user, reducing usefulness.
+
+- "You can only open Surfline two or three times a day, but once you exceed 
+  that, there is no way to access information for any location beyond wave 
+  height and quality..." (JustUseApp)
+- "The newest update only lets you check... 5 times per week!" (JustUseApp)
+
+## 5. Poor Customer Support / Billing Issues
+
+Complaints about automatic renewals, difficulty cancelling, unresponsive 
+support.
+
+- "Duplicate charges... numerous emails... no response." 
+  (ProductReview.com.au)
+- "I purchased Surfline Premium... weeks later still unable to log on... no 
+  correspondence from Surfline or refund." (Better Business Bureau)
+
+## 6. Camera / Live-Cam Functionality Problems
+
+Even for paid users, cams may be down, freeze, or offer poor angles/resolution; 
+free users often lose access.
+
+- "Cams just freeze and you are prompted to subscribe unfortunately." 
+  (ProductReview.com.au)
+- "Had Coastwatch... Surfline is garbage... most of the beaches have cameras... 
+  when I try to access beach cams... always an issue." (ProductReview.com.au)
+
+## 7. Data / Model Coverage Poor Outside Major Spots
+
+For smaller/less popular surf breaks, or obscure regions, the forecasts or 
+cams may be worse or missing.
+
+- "I live in Cornwall where conditions vary widely... Yet we just receive a 
+  daily forecast... Needless to say, it's wildly inaccurate to the point of 
+  being meaningless." (Trustpilot)
+- "App performance issues... Sometimes nothing works... locations can't be 
+  found..." (Kimola)
+
+## 8. Updates Degrade User Experience
+
+Users say recent versions of the app removed beloved features, changed UI/UX 
+in worse ways, or tilted heavily toward upselling premium.
+
+- "I've been using this app for years but this last update is just terrible. 
+  ... Now, I can only do that 3 times a week with a free account." (JustUseApp)
+- "Our relationship... fell flat... the final draining... handlers wanted to 
+  charge me just to see you a few times a week..." (JustUseApp)
+
+## 9. Interface / Device Issues
+
+Complaints about the app on certain devices (iPad, etc), poor landscape 
+support, search/navigation issues.
+
+- "App works poorly on iPad at all. Doesn't support landscape mode except for 
+  cam feeds." (JustUseApp)
+- "Login/account issues, crashing/bugs." (JustUseApp)
+
+## 10. Perceived Lack of Value / Better Alternatives
+
+Many users feel they can get similar or better data from free sources, and 
+thus the premium doesn't justify its cost.
+
+- "There are tons of surf apps out there for forecasts... The only difference 
+  ... was that I could just open Surfline and watch the cam... Now... you have 
+  to pay for it." (JustUseApp)
+- "I use other free cams now... Do not subscribe it's no better." (Trustpilot)
+
+## 11. Monopoly / Acquisition Concerns
+
+Some users feel Surfline has bought up smaller services (e.g. Magicseaweed) 
+and thus reduced competition, leading to worse service.
+
+- "They bought Magicseaweed so now they're nearly the only game in town." 
+  (Trustpilot)
+- "Bring back MagicSeaweed... surfline stinks..." (ProductReview.com.au)
+
+## 12. Misleading "Observed" Conditions
+
+The app sometimes lists "observed" wave heights or conditions that users on 
+scene find incorrect (e.g., claiming larger waves than actual).
+
+- "I am at the southern california beach with ankle deep ripples and Surfline 
+  claims a 'observed' 3 feet to 5 feet..." (Trustpilot)
+
+## 13. Inconsistent Global Coverage / Regional Mismatch
+
+For certain regions (Europe, Australia, etc) users feel the models are weak, 
+or the forecast grid is too generic.
+
+- "In Australia, particularly Victoria... I think they all suck except the 
+  BOM." (Seabreeze.com.au)
+
+## 14. Reduced Stoke / Worse Experience
+
+Some note that instead of helping them catch waves, the app becomes more of 
+an annoyance/distraction, because of limitations or upselling.
+
+- "Instead of getting out there and surfing a swell, I often just stared at 
+  my phone screen indecisive..." (JustUseApp)
+
+## 15. Limited Free Trial / Difficult Cancelation Trap
+
+Subscriptions may auto-renew; some feel caught by the trial or subscription 
+model and get charged unexpectedly.
+
+- "Forgot to cancel. So they charged my card $99 and I got nothing. ... 
+  Customer support sux also." (Trustpilot)
+
+---
+
+## Sources
+
+[1] JustUseApp: https://justuseapp.com/en/app/393782096/surfline-surfing-companion/reviews
+[2] Trustpilot: https://nz.trustpilot.com/review/surfline.com
+[3] Kimola: https://kimola.com/reports/surfline-app-feedback-report-insights-on-user-dissatisfaction-google-play-en-us-156613
+[4] ProductReview.com.au: https://www.productreview.com.au/listings/surfline
+[5] Better Business Bureau: https://www.bbb.org/us/ca/huntington-beach/profile/surfboard/surflinecom-1126-13205260/customer-reviews
+[6] JustUseApp Problems: https://justuseapp.com/en/app/393782096/surfline-surfing-companion/problems
+[7] Seabreeze.com.au: https://www.seabreeze.com.au/forums/Windsurfing/General/Surfline-sucks
