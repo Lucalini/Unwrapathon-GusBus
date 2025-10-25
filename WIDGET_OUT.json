@@ -1,0 +1,99 @@
+{
+  "title": "RawCustomerReviewInput",
+  "type": "object",
+  "description": "The raw payload sent from the user's client-side widget to the backend processing pipeline.",
+  "properties": {
+    "CustomerID": {
+      "type": "string",
+      "description": "Unique identifier for the customer."
+    },
+    "ReviewSubmissionTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "The moment the user submitted the review/ended the chat (ISO 8601 format)."
+    },
+    "UserMetadata": {
+      "type": "object",
+      "description": "Customer metadata relevant for subscription status and location.",
+      "properties": {
+        "Email": {
+          "type": "string",
+          "format": "email",
+          "description": "Customer's email address."
+        },
+        "SubscriptionLevel": {
+          "type": "string",
+          "description": "The customer's current known subscription level (e.g., 'Free', 'Premium', 'Pro')."
+        },
+        "Geolocation": {
+          "type": "object",
+          "description": "User's location data at the time of submission.",
+          "properties": {
+            "City": {
+              "type": "string"
+            },
+            "Country": {
+              "type": "string"
+            }
+          },
+          "required": ["City", "Country"]
+        }
+      },
+      "required": ["Email", "SubscriptionLevel", "Geolocation"]
+    },
+    "RawChatHistory": {
+      "type": "array",
+      "description": "The unprocessed, chronological conversation history from the chatbot.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "Sender": {
+            "type": "string",
+            "description": "The speaker of the message (e.g., 'User', 'Chatbot')."
+          },
+          "Timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp for the specific message (ISO 8601 format)."
+          },
+          "Text": {
+            "type": "string",
+            "description": "The message content."
+          }
+        },
+        "required": ["Sender", "Timestamp", "Text"]
+      }
+    },
+    "RawWebHistory": {
+      "type": "array",
+      "description": "Structured list of recent web page visits, including full HTML scrapes.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "URL": {
+            "type": "string",
+            "format": "url",
+            "description": "The URL of the page visited."
+          },
+          "VisitTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The time the user landed on the page (ISO 8601 format)."
+          },
+          "FullPageHTML": {
+            "type": "string",
+            "description": "The complete HTML content of the page scrape (large string)."
+          }
+        },
+        "required": ["URL", "VisitTime", "FullPageHTML"]
+      }
+    }
+  },
+  "required": [
+    "CustomerID",
+    "ReviewSubmissionTimestamp",
+    "UserMetadata",
+    "RawChatHistory",
+    "RawWebHistory"
+  ]
+}
