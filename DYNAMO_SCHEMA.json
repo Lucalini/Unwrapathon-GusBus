@@ -1,0 +1,108 @@
+{
+  "type": "object",
+  "properties": {
+    "PK": {
+      "type": "string",
+      "description": "Partition Key - e.g., 'CUSTOMER#<customer_id>'"
+    },
+    "SK": {
+      "type": "string",
+      "description": "Sort Key - e.g., 'REVIEW#<timestamp>'"
+    },
+    "CustomerID": {
+      "type": "string",
+      "description": "Unique identifier for the customer."
+    },
+    "ReviewID": {
+      "type": "string",
+      "description": "Unique identifier for the specific review."
+    },
+    "ReviewTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "The date and time the review was submitted (ISO 8601 format)."
+    },
+    "SentimentScore": {
+      "type": "number",
+      "description": "Numerical score representing the review sentiment (e.g., -1 to 1). Essential for sentiment analysis."
+    },
+    "SentimentLabel": {
+      "type": "string",
+      "description": "Categorical sentiment label (e.g., 'Positive', 'Neutral', 'Negative')."
+    },
+    "Summary": {
+      "type": "string",
+      "description": "A concise summary of the review content/topic."
+    },
+    "IsPayingCustomer": {
+      "type": "boolean",
+      "description": "True if the customer has an active subscription (e.g., Premium)."
+    },
+    "SubscriptionTier": {
+      "type": "string",
+      "description": "The customer's current subscription level (e.g., 'Free', 'Premium', 'Pro')."
+    },
+    "ChatTranscript": {
+      "type": "array",
+      "description": "The structured conversation history that constitutes the review.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "Sender": {
+            "type": "string",
+            "description": "The sender of the message (e.g., 'User', 'Assistant')."
+          },
+          "Timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp for the specific message."
+          },
+          "Text": {
+            "type": "string",
+            "description": "The content of the message."
+          }
+        },
+        "required": ["Sender", "Timestamp", "Text"]
+      }
+    },
+    "RecentPageVisits": {
+      "type": "array",
+      "description": "Structured list of the user's recent page visits, including the full HTML scrape.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "URL": {
+            "type": "string",
+            "description": "The URL of the page visited (e.g., /spot/tahiti/teahupo'o)."
+          },
+          "VisitTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The time the user landed on the page."
+          },
+          "PageType": {
+            "type": "string",
+            "description": "Categorization of the page (e.g., 'Forecast', 'Camera', 'News', 'Profile')."
+          },
+          "FullPageHTML": {
+            "type": "string",
+            "description": "The complete HTML content of the page scrape. **(Warning: This is a large string and can significantly increase data size and cost.)**"
+          }
+        },
+        "required": ["URL", "VisitTime", "PageType", "FullPageHTML"]
+      }
+    }
+  },
+  "required": [
+    "PK",
+    "SK",
+    "CustomerID",
+    "ReviewID",
+    "ReviewTimestamp",
+    "SentimentScore",
+    "SentimentLabel",
+    "IsPayingCustomer",
+    "ChatTranscript",
+    "RecentPageVisits"
+  ]
+}
