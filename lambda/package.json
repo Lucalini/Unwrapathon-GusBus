@@ -1,0 +1,15 @@
+{
+  "name": "gusbus-lambda-functions",
+  "version": "1.0.0",
+  "description": "Lambda functions for GusBus ticket management",
+  "main": "getTickets.js",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.400.0",
+    "@aws-sdk/util-dynamodb": "^3.400.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}
+

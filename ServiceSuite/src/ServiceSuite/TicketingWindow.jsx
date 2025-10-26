@@ -309,9 +309,11 @@ const TicketingWindow = ({ tickets = [] }) => {
             <div className="space-y-4">
               {filteredAndSortedTickets
                 .filter(ticket => showCompleted || !completedTodos.has(ticket.ReviewID))
-                .map((ticket) => {
+                .map((ticket, index) => {
                   const isCompleted = completedTodos.has(ticket.ReviewID);
                   const isSelected = selectedTickets.has(ticket.ReviewID);
+                  const totalTickets = filteredAndSortedTickets.filter(t => showCompleted || !completedTodos.has(t.ReviewID)).length;
+                  const reviewNumber = index + 1;
                   
                   return (
                     <div
@@ -339,8 +341,8 @@ const TicketingWindow = ({ tickets = [] }) => {
                         
                         <div className="flex-1 space-y-2">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <code className="text-xs bg-muted px-2 py-1 rounded">
-                              #{ticket.ReviewID?.slice(0, 8)}
+                            <code className="text-xs bg-muted px-2 py-1 rounded font-semibold">
+                              Review #{reviewNumber} of {totalTickets}
                             </code>
                             <span className="text-xs text-muted-foreground">
                               {formatDate(ticket.ReviewTimestamp)}

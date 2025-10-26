@@ -4,10 +4,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Button } from '../components/ui/button';
 import { Switch } from '../components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { RefreshCw, Loader2, AlertTriangle } from 'lucide-react';
+import { Input } from '../components/ui/input';
+import { RefreshCw, Loader2, AlertTriangle, Settings } from 'lucide-react';
 import UserSentimentPet from './UserSentimentPet';
 import TicketingWindow from './TicketingWindow';
 import OnboardingFlowchart from './OnboardingFlowchart';
+import SentimentTrendChart from './SentimentTrendChart';
 
 /**
  * Main App Component for Customer Service Suite
@@ -24,14 +26,30 @@ const App = () => {
   const [error, setError] = useState(null);
   const [refreshInterval, setRefreshInterval] = useState('60000');
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [useMockData, setUseMockData] = useState(false); // Toggle for mock vs real data
+  const [apiUrl, setApiUrl] = useState(
+    localStorage.getItem('apiUrl') || 'https://cfex7cfhal.execute-api.us-west-2.amazonaws.com/prod'
+  ); // API Gateway URL stored in localStorage
+  const [showSettings, setShowSettings] = useState(false);
 
-  // Fetch tickets from DynamoDB backend
+  // Fetch tickets from DynamoDB backend or use mock data
   const fetchTickets = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/api/tickets', {
+      // If mock data is enabled, just load mock data
+      if (useMockData) {
+        loadMockData();
+        return;
+      }
+
+      // Otherwise, fetch from API
+      if (!apiUrl) {
+        throw new Error('API URL not configured. Please enter your API Gateway URL or use mock data.');
+      }
+
+      const response = await fetch(`${apiUrl}/reviews`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -43,26 +61,39 @@ const App = () => {
       }
 
       const data = await response.json();
-      setTickets(data.tickets || data || []);
+      // API returns {count: N, items: [...]}
+      setTickets(data.items || data.tickets || data || []);
     } catch (err) {
       console.error('Error fetching tickets:', err);
       setError(err.message);
-      loadMockData();
+      
+      // Fall back to mock data on error
+      if (!useMockData) {
+        console.log('Falling back to mock data');
+        loadMockData();
+      }
     } finally {
       setLoading(false);
     }
   };
 
   // Load mock data for development
-  const loadMockData = () => {
-    const mockTickets = generateMockTickets(50);
+  const loadMockData = (count = 50, sentimentRange = null) => {
+    const mockTickets = generateMockTickets(count, sentimentRange);
     setTickets(mockTickets);
+    setLoading(false);
+  };
+
+  // Save API URL to localStorage
+  const handleApiUrlChange = (url) => {
+    setApiUrl(url);
+    localStorage.setItem('apiUrl', url);
   };
 
   // Initial load
   useEffect(() => {
     fetchTickets();
-  }, []);
+  }, [useMockData]); // Re-fetch when switching between mock and real data
 
   // Auto-refresh
   useEffect(() => {
@@ -88,6 +119,25 @@ const App = () => {
           </div>
           
           <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowSettings(!showSettings)}
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+
+            <div className="flex items-center gap-2">
+              <Switch
+                id="mock-data"
+                checked={useMockData}
+                onCheckedChange={setUseMockData}
+              />
+              <label htmlFor="mock-data" className="text-sm cursor-pointer">
+                {useMockData ? '🎭 Mock Data' : '☁️ Real Data'}
+              </label>
+            </div>
+
             <div className="flex items-center gap-2">
               <Switch
                 id="auto-refresh"
@@ -129,6 +179,61 @@ const App = () => {
 
       {/* Main Content */}
       <main className="container px-4 sm:px-8 py-6">
+        {/* API Configuration */}
+        {!useMockData && !apiUrl && (
+          <Card className="mb-6 border-yellow-500 bg-yellow-50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                API Configuration Required
+              </CardTitle>
+              <CardDescription>
+                Enter your API Gateway URL to fetch real data from DynamoDB
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="https://cfex7cfhal.execute-api.us-west-2.amazonaws.com/prod"
+                  value={apiUrl}
+                  onChange={(e) => handleApiUrlChange(e.target.value)}
+                  className="flex-1"
+                />
+                <Button onClick={fetchTickets}>Connect</Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Your API endpoint: <code>/reviews</code>
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Settings Panel */}
+        {showSettings && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Settings</CardTitle>
+              <CardDescription>Configure your data source</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">API Gateway URL</label>
+                <Input
+                  placeholder="https://cfex7cfhal.execute-api.us-west-2.amazonaws.com/prod"
+                  value={apiUrl}
+                  onChange={(e) => handleApiUrlChange(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Your API URL will be saved locally in your browser (endpoint: /reviews)
+                </p>
+              </div>
+              <Button onClick={() => setShowSettings(false)} variant="outline">
+                Close Settings
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {loading && tickets.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -159,48 +264,114 @@ const App = () => {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="dashboard" className="mt-6">
+            <TabsContent value="dashboard" className="mt-6 space-y-6">
               <div className="grid gap-6 md:grid-cols-2">
                 <div>
                   <UserSentimentPet tickets={tickets} />
                 </div>
-                <div>
+                <div className="space-y-6">
                   <Card>
                     <CardHeader>
-                      <CardTitle>Quick Stats</CardTitle>
-                      <CardDescription>Overview of all tickets</CardDescription>
+                      <CardTitle>Ticket Overview</CardTitle>
+                      <CardDescription>Sentiment breakdown of all tickets</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <StatCard
-                          label="Total Tickets"
-                          value={tickets.length}
-                          icon="🎫"
-                          color="bg-blue-500"
-                        />
-                        <StatCard
-                          label="Negative"
-                          value={tickets.filter(t => t.SentimentLabel === 'Negative').length}
-                          icon="😞"
-                          color="bg-red-500"
-                        />
-                        <StatCard
-                          label="Positive"
-                          value={tickets.filter(t => t.SentimentLabel === 'Positive').length}
-                          icon="😊"
-                          color="bg-green-500"
-                        />
-                        <StatCard
-                          label="Paying Customers"
-                          value={tickets.filter(t => t.CustomerStatus?.IsPayingCustomer).length}
-                          icon="💳"
-                          color="bg-yellow-500"
-                        />
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="text-center p-4 rounded-lg bg-muted">
+                          <div className="text-3xl font-bold">{tickets.length}</div>
+                          <div className="text-sm text-muted-foreground mt-1">Total</div>
+                        </div>
+                        <div className="text-center p-4 rounded-lg bg-green-100">
+                          <div className="text-3xl font-bold text-green-600">
+                            {tickets.filter(t => t.SentimentLabel === 'Positive').length}
+                          </div>
+                          <div className="text-sm text-muted-foreground mt-1">Positive</div>
+                        </div>
+                        <div className="text-center p-4 rounded-lg bg-gray-100">
+                          <div className="text-3xl font-bold text-gray-600">
+                            {tickets.filter(t => t.SentimentLabel === 'Neutral').length}
+                          </div>
+                          <div className="text-sm text-muted-foreground mt-1">Neutral</div>
+                        </div>
+                        <div className="text-center p-4 rounded-lg bg-red-100">
+                          <div className="text-3xl font-bold text-red-600">
+                            {tickets.filter(t => t.SentimentLabel === 'Negative').length}
+                          </div>
+                          <div className="text-sm text-muted-foreground mt-1">Negative</div>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
+
+                  {/* Mock Data Generator */}
+                  {useMockData && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">Generate Mock Data</CardTitle>
+                        <CardDescription>Create tickets with specific sentiment ranges</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-3 gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => loadMockData(20, 'critical')}
+                            className="border-red-500 text-red-600 hover:bg-red-50"
+                          >
+                            Critical
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => loadMockData(20, 'poor')}
+                            className="border-orange-500 text-orange-600 hover:bg-orange-50"
+                          >
+                            Poor
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => loadMockData(20, 'fair')}
+                            className="border-yellow-500 text-yellow-600 hover:bg-yellow-50"
+                          >
+                            Fair
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => loadMockData(20, 'good')}
+                            className="border-green-500 text-green-600 hover:bg-green-50"
+                          >
+                            Good
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => loadMockData(20, 'excellent')}
+                            className="border-cyan-500 text-cyan-600 hover:bg-cyan-50"
+                          >
+                            Excellent
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => loadMockData(50)}
+                            className="border-gray-500 text-gray-600 hover:bg-gray-50"
+                          >
+                            Mixed (50)
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Click to generate 20 tickets in each sentiment range
+                        </p>
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
               </div>
+
+              {/* Sentiment Trend Chart */}
+              <SentimentTrendChart tickets={tickets} />
             </TabsContent>
 
             <TabsContent value="tickets" className="mt-6">
@@ -226,19 +397,8 @@ const App = () => {
   );
 };
 
-// StatCard Component
-const StatCard = ({ label, value, icon, color }) => (
-  <div className={`flex items-center gap-4 rounded-lg border p-4 border-l-4 ${color}`}>
-    <div className="text-4xl">{icon}</div>
-    <div className="flex-1">
-      <div className={`text-3xl font-bold ${color.replace('bg-', 'text-')}`}>{value}</div>
-      <div className="text-sm text-muted-foreground">{label}</div>
-    </div>
-  </div>
-);
-
 // Utility function to generate mock tickets for testing
-const generateMockTickets = (count) => {
+const generateMockTickets = (count, sentimentRange = null) => {
   const sentiments = ['Positive', 'Neutral', 'Negative'];
   const subscriptions = ['Free', 'Premium', 'Pro'];
   const cities = ['New York', 'San Francisco', 'London', 'Tokyo', 'Berlin', 'Sydney'];
@@ -263,12 +423,51 @@ const generateMockTickets = (count) => {
   ];
 
   return Array.from({ length: count }, (_, i) => {
-    const sentimentLabel = sentiments[Math.floor(Math.random() * sentiments.length)];
-    const sentimentScore = sentimentLabel === 'Positive' 
-      ? Math.random() * 0.5 + 0.5
-      : sentimentLabel === 'Negative'
-      ? Math.random() * -0.5 - 0.5
-      : Math.random() * 0.4 - 0.2;
+    let sentimentLabel;
+    let sentimentScore;
+
+    // If sentiment range is specified, use it to generate specific sentiment data
+    if (sentimentRange) {
+      switch (sentimentRange) {
+        case 'critical': // 0-19
+          sentimentScore = (Math.random() * 0.2 - 1); // -1 to -0.8
+          sentimentLabel = 'Negative';
+          break;
+
+        case 'poor': // 20-39
+          sentimentScore = (Math.random() * 0.2 - 0.4); // -0.8 to -0.6
+          sentimentLabel = 'Negative';
+          break;
+
+        case 'fair': // 40-59
+          sentimentScore = (Math.random() * 0.4 - 0.2); // -0.2 to 0.2
+          sentimentLabel = 'Neutral';
+          break;
+        case 'good': // 60-79
+          sentimentScore = (Math.random() * 0.2 + 0.2); // 0.2 to 0.4
+          sentimentLabel = 'Positive';
+          break;
+        case 'excellent': // 80-100
+          sentimentScore = (Math.random() * 0.4 + 0.6); // 0.6 to 1.0
+          sentimentLabel = 'Positive';
+          break;
+        default:
+          sentimentLabel = sentiments[Math.floor(Math.random() * sentiments.length)];
+          sentimentScore = sentimentLabel === 'Positive' 
+            ? Math.random() * 0.5 + 0.5
+            : sentimentLabel === 'Negative'
+            ? Math.random() * -0.5 - 0.5
+            : Math.random() * 0.4 - 0.2;
+      }
+    } else {
+      // Random sentiment
+      sentimentLabel = sentiments[Math.floor(Math.random() * sentiments.length)];
+      sentimentScore = sentimentLabel === 'Positive' 
+        ? Math.random() * 0.5 + 0.5
+        : sentimentLabel === 'Negative'
+        ? Math.random() * -0.5 - 0.5
+        : Math.random() * 0.4 - 0.2;
+    }
     
     const subscriptionLevel = subscriptions[Math.floor(Math.random() * subscriptions.length)];
     const cityIndex = Math.floor(Math.random() * cities.length);
@@ -280,7 +479,7 @@ const generateMockTickets = (count) => {
       PK: `CUSTOMER#${1000 + i}`,
       SK: `REVIEW#${timestamp}`,
       CustomerID: `CUST-${1000 + i}`,
-      ReviewID: `REV-${10000 + i}-${Date.now()}`,
+      ReviewID: `review-${10000 + i}`,
       ReviewTimestamp: timestamp,
       SentimentScore: sentimentScore,
       SentimentLabel: sentimentLabel,
