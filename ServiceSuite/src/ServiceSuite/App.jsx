@@ -4,7 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Button } from '../components/ui/button';
 import { Switch } from '../components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { RefreshCw, Loader2, AlertTriangle } from 'lucide-react';
+import { Input } from '../components/ui/input';
+import { RefreshCw, Loader2, AlertTriangle, Settings } from 'lucide-react';
 import UserSentimentPet from './UserSentimentPet';
 import TicketingWindow from './TicketingWindow';
 import OnboardingFlowchart from './OnboardingFlowchart';
@@ -24,14 +25,30 @@ const App = () => {
   const [error, setError] = useState(null);
   const [refreshInterval, setRefreshInterval] = useState('60000');
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [useMockData, setUseMockData] = useState(false); // Toggle for mock vs real data
+  const [apiUrl, setApiUrl] = useState(
+    localStorage.getItem('apiUrl') || 'https://cfex7cfhal.execute-api.us-west-2.amazonaws.com/prod'
+  ); // API Gateway URL stored in localStorage
+  const [showSettings, setShowSettings] = useState(false);
 
-  // Fetch tickets from DynamoDB backend
+  // Fetch tickets from DynamoDB backend or use mock data
   const fetchTickets = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/api/tickets', {
+      // If mock data is enabled, just load mock data
+      if (useMockData) {
+        loadMockData();
+        return;
+      }
+
+      // Otherwise, fetch from API
+      if (!apiUrl) {
+        throw new Error('API URL not configured. Please enter your API Gateway URL or use mock data.');
+      }
+
+      const response = await fetch(`${apiUrl}/reviews`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -43,11 +60,17 @@ const App = () => {
       }
 
       const data = await response.json();
-      setTickets(data.tickets || data || []);
+      // API returns {count: N, items: [...]}
+      setTickets(data.items || data.tickets || data || []);
     } catch (err) {
       console.error('Error fetching tickets:', err);
       setError(err.message);
-      loadMockData();
+      
+      // Fall back to mock data on error
+      if (!useMockData) {
+        console.log('Falling back to mock data');
+        loadMockData();
+      }
     } finally {
       setLoading(false);
     }
@@ -57,12 +80,19 @@ const App = () => {
   const loadMockData = () => {
     const mockTickets = generateMockTickets(50);
     setTickets(mockTickets);
+    setLoading(false);
+  };
+
+  // Save API URL to localStorage
+  const handleApiUrlChange = (url) => {
+    setApiUrl(url);
+    localStorage.setItem('apiUrl', url);
   };
 
   // Initial load
   useEffect(() => {
     fetchTickets();
-  }, []);
+  }, [useMockData]); // Re-fetch when switching between mock and real data
 
   // Auto-refresh
   useEffect(() => {
@@ -88,6 +118,25 @@ const App = () => {
           </div>
           
           <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowSettings(!showSettings)}
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+
+            <div className="flex items-center gap-2">
+              <Switch
+                id="mock-data"
+                checked={useMockData}
+                onCheckedChange={setUseMockData}
+              />
+              <label htmlFor="mock-data" className="text-sm cursor-pointer">
+                {useMockData ? '🎭 Mock Data' : '☁️ Real Data'}
+              </label>
+            </div>
+
             <div className="flex items-center gap-2">
               <Switch
                 id="auto-refresh"
@@ -129,6 +178,61 @@ const App = () => {
 
       {/* Main Content */}
       <main className="container px-4 sm:px-8 py-6">
+        {/* API Configuration */}
+        {!useMockData && !apiUrl && (
+          <Card className="mb-6 border-yellow-500 bg-yellow-50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                API Configuration Required
+              </CardTitle>
+              <CardDescription>
+                Enter your API Gateway URL to fetch real data from DynamoDB
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="https://cfex7cfhal.execute-api.us-west-2.amazonaws.com/prod"
+                  value={apiUrl}
+                  onChange={(e) => handleApiUrlChange(e.target.value)}
+                  className="flex-1"
+                />
+                <Button onClick={fetchTickets}>Connect</Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Your API endpoint: <code>/reviews</code>
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Settings Panel */}
+        {showSettings && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Settings</CardTitle>
+              <CardDescription>Configure your data source</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">API Gateway URL</label>
+                <Input
+                  placeholder="https://cfex7cfhal.execute-api.us-west-2.amazonaws.com/prod"
+                  value={apiUrl}
+                  onChange={(e) => handleApiUrlChange(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Your API URL will be saved locally in your browser (endpoint: /reviews)
+                </p>
+              </div>
+              <Button onClick={() => setShowSettings(false)} variant="outline">
+                Close Settings
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {loading && tickets.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -167,35 +271,33 @@ const App = () => {
                 <div>
                   <Card>
                     <CardHeader>
-                      <CardTitle>Quick Stats</CardTitle>
-                      <CardDescription>Overview of all tickets</CardDescription>
+                      <CardTitle>Ticket Overview</CardTitle>
+                      <CardDescription>Sentiment breakdown of all tickets</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <StatCard
-                          label="Total Tickets"
-                          value={tickets.length}
-                          icon="🎫"
-                          color="bg-blue-500"
-                        />
-                        <StatCard
-                          label="Negative"
-                          value={tickets.filter(t => t.SentimentLabel === 'Negative').length}
-                          icon="😞"
-                          color="bg-red-500"
-                        />
-                        <StatCard
-                          label="Positive"
-                          value={tickets.filter(t => t.SentimentLabel === 'Positive').length}
-                          icon="😊"
-                          color="bg-green-500"
-                        />
-                        <StatCard
-                          label="Paying Customers"
-                          value={tickets.filter(t => t.CustomerStatus?.IsPayingCustomer).length}
-                          icon="💳"
-                          color="bg-yellow-500"
-                        />
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="text-center p-4 rounded-lg bg-muted">
+                          <div className="text-3xl font-bold">{tickets.length}</div>
+                          <div className="text-sm text-muted-foreground mt-1">Total</div>
+                        </div>
+                        <div className="text-center p-4 rounded-lg bg-green-100">
+                          <div className="text-3xl font-bold text-green-600">
+                            {tickets.filter(t => t.SentimentLabel === 'Positive').length}
+                          </div>
+                          <div className="text-sm text-muted-foreground mt-1">Positive</div>
+                        </div>
+                        <div className="text-center p-4 rounded-lg bg-gray-100">
+                          <div className="text-3xl font-bold text-gray-600">
+                            {tickets.filter(t => t.SentimentLabel === 'Neutral').length}
+                          </div>
+                          <div className="text-sm text-muted-foreground mt-1">Neutral</div>
+                        </div>
+                        <div className="text-center p-4 rounded-lg bg-red-100">
+                          <div className="text-3xl font-bold text-red-600">
+                            {tickets.filter(t => t.SentimentLabel === 'Negative').length}
+                          </div>
+                          <div className="text-sm text-muted-foreground mt-1">Negative</div>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -225,17 +327,6 @@ const App = () => {
     </div>
   );
 };
-
-// StatCard Component
-const StatCard = ({ label, value, icon, color }) => (
-  <div className={`flex items-center gap-4 rounded-lg border p-4 border-l-4 ${color}`}>
-    <div className="text-4xl">{icon}</div>
-    <div className="flex-1">
-      <div className={`text-3xl font-bold ${color.replace('bg-', 'text-')}`}>{value}</div>
-      <div className="text-sm text-muted-foreground">{label}</div>
-    </div>
-  </div>
-);
 
 // Utility function to generate mock tickets for testing
 const generateMockTickets = (count) => {
