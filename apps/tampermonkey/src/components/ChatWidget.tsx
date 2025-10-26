@@ -10,7 +10,7 @@ interface ChatWidgetProps {
   onClose?: () => void;
 }
 
-const ChatWidget: React.FC<ChatWidgetProps> = ({ onClose }) => {
+const ChatWidget: React.FC<ChatWidgetProps> = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
