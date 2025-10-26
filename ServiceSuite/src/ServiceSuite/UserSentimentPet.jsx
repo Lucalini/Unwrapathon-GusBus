@@ -65,7 +65,7 @@ const UserSentimentPet = ({ tickets = [] }) => {
       textColor: 'text-orange-600',
       borderColor: 'border-orange-500',
       description: 'App health is poor. Multiple issues detected.',
-      frames: [Distraught1, Distraught2, Distraught3, Distraught4, Distraught5]
+      frames: [Distraught1, Distraught2, Distraught3, Distraught5, Distraught5]
     },
     fair: {
       name: 'Fair',
@@ -75,7 +75,7 @@ const UserSentimentPet = ({ tickets = [] }) => {
       textColor: 'text-yellow-600',
       borderColor: 'border-yellow-500',
       description: 'App health is fair. Some improvements needed.',
-      frames: [Sad1, Sad2, Sad3, Sad4, Sad5]
+      frames: [Sad1, Sad2, Sad2, Sad4, Sad5]
     },
     good: {
       name: 'Good',
@@ -85,7 +85,7 @@ const UserSentimentPet = ({ tickets = [] }) => {
       textColor: 'text-green-600',
       borderColor: 'border-green-500',
       description: 'App health is good. Minor issues to address.',
-      frames: [Medium1, Medium2, Medium3, Medium4, Medium5]
+      frames: [Medium1, Medium2, Medium1, Medium2, Medium1]
     },
     excellent: {
       name: 'Excellent',
@@ -142,7 +142,6 @@ const UserSentimentPet = ({ tickets = [] }) => {
     const interval = setInterval(() => {
       setCurrentFrame((prev) => (prev + 1) % 5);
     }, 500); // Change frame every 500ms for smooth animation
-
     return () => clearInterval(interval);
   }, []);
 

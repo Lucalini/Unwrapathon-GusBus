@@ -9,11 +9,12 @@ import { Badge } from '../components/ui/badge';
  * Google Charts Sankey visualization of onboarding flow:
  * - Stage 1: Acquisition sources (Instagram, Facebook, TikTok, Reddit, Web Ads, Organic) with different colors and sizes
  * - Stage 2: Total Users aggregation node
- * - Stage 3: Account Creation outcomes (Success in green, Failures in red)
- * - Stage 4: Surf Cam Viewing outcomes (Viewed successfully in blue, Failures in red)
- * - Stage 5: User Plans (Free, Basic, Premium, Enterprise)
+ * - Stage 3: Account Creation outcomes (Success in green, Failures in red at bottom)
+ * - Stage 4: Surf Cam Viewing outcomes (Viewed successfully in blue, Failures in red at bottom)
+ * - Stage 5: User Plans (Success plans at TOP: Enterprise, Premium, Basic; Free in MIDDLE; Failures at BOTTOM in red)
  * 
  * Node sizes reflect the number of users at each stage.
+ * Vertical positioning: Successes at top → Free users in middle → Failures at bottom
  */
 
 const OnboardingFlowchart = ({ tickets = [] }) => {
@@ -63,44 +64,54 @@ const OnboardingFlowchart = ({ tickets = [] }) => {
     const emailErrorRate = 0.15;
     const tooManyStepsRate = 0.10;
 
-    // Step 1: Sources → Total Users
+    // Calculate all values first
     let totalFromSources = 0;
     SOURCES.forEach(source => {
-      const users = source.users;
-      data.push([source.name, 'Total Users', users]);
-      totalFromSources += users;
+      totalFromSources += source.users;
     });
 
-    // Step 2: Total Users → Account Creation Outcomes
     const successfulAccounts = Math.round(totalFromSources * successRate);
     const emailErrors = Math.round(totalFromSources * emailErrorRate);
     const tooManySteps = Math.round(totalFromSources * tooManyStepsRate);
 
-    data.push(['Total Users', 'Account Created', successfulAccounts]);
-    data.push(['Total Users', '❌ Email Verification Error', emailErrors]);
-    data.push(['Total Users', '❌ Too Many Steps', tooManySteps]);
-
-    // Step 3: Account Created → Surf Cam Viewing Outcomes
     // Assume 80% view surf cam successfully, 12% encounter lag, 8% see too many ads
     const viewedSurfCam = Math.round(successfulAccounts * 0.80);
     const tooLaggy = Math.round(successfulAccounts * 0.12);
     const tooManyAds = successfulAccounts - viewedSurfCam - tooLaggy; // remainder
 
-    data.push(['Account Created', 'Viewed a Surf Cam', viewedSurfCam]);
-    data.push(['Account Created', '❌ App is Too Laggy', tooLaggy]);
-    data.push(['Account Created', '❌ Too Many Ads on Surf Cam', tooManyAds]);
-
-    // Step 4: Viewed a Surf Cam → User Plans
     // Assume 40% free, 30% basic, 20% premium, 10% enterprise
     const freePlan = Math.round(viewedSurfCam * 0.40);
     const basicPlan = Math.round(viewedSurfCam * 0.30);
     const premiumPlan = Math.round(viewedSurfCam * 0.20);
     const enterprisePlan = viewedSurfCam - freePlan - basicPlan - premiumPlan; // remainder
 
-    data.push(['Viewed a Surf Cam', 'Free Plan', freePlan]);
-    data.push(['Viewed a Surf Cam', 'Basic Plan', basicPlan]);
-    data.push(['Viewed a Surf Cam', 'Premium Plan', premiumPlan]);
+    // REORDERED FLOW: Add data in order to position successes at top, free in middle, failures at bottom
+    // Step 1: Sources → Total Users
+    SOURCES.forEach(source => {
+      data.push([source.name, 'Total Users', source.users]);
+    });
+
+    // Step 2: Total Users → Account Created (success path first for top positioning)
+    data.push(['Total Users', 'Account Created', successfulAccounts]);
+
+    // Step 3: Account Created → Viewed a Surf Cam (success path continues)
+    data.push(['Account Created', 'Viewed a Surf Cam', viewedSurfCam]);
+
+    // Step 4: Viewed a Surf Cam → Success Plans (Enterprise, Premium, Basic) at TOP
     data.push(['Viewed a Surf Cam', 'Enterprise Plan', enterprisePlan]);
+    data.push(['Viewed a Surf Cam', 'Premium Plan', premiumPlan]);
+    data.push(['Viewed a Surf Cam', 'Basic Plan', basicPlan]);
+
+    // Step 5: Viewed a Surf Cam → Free Plan in MIDDLE
+    data.push(['Viewed a Surf Cam', 'Free Plan', freePlan]);
+
+    // Step 6: Account Created → Surf Cam Failures (added after successes)
+    data.push(['Account Created', '❌ App is Too Laggy', tooLaggy]);
+    data.push(['Account Created', '❌ Too Many Ads Before Viewing Surf Cam', tooManyAds]);
+
+    // Step 7: Total Users → Account Creation Failures at BOTTOM
+    data.push(['Total Users', '❌ Email Verification Error', emailErrors]);
+    data.push(['Total Users', '❌ Too Many Steps', tooManySteps]);
 
     // Calculate metrics for display
     const sourceMetrics = SOURCES.map(source => ({
@@ -172,19 +183,20 @@ const OnboardingFlowchart = ({ tickets = [] }) => {
           '#34A853', // Organic
           // Total Users aggregation node
           '#64748B', // Gray/Blue for Total Users
-          // Account creation outcomes (3 nodes)
+          // Success path (appears at top)
           '#10B981', // Account Created (green)
-          '#EF4444', // Email Verification Error (red)
-          '#DC2626', // Too Many Steps (red)
-          // Surf cam viewing outcomes (3 nodes)
           '#0EA5E9', // Viewed a Surf Cam (blue)
+          // User plans - Successes at TOP (Enterprise, Premium, Basic)
+          '#047857', // Enterprise Plan (darkest green)
+          '#059669', // Premium Plan (darker green)
+          '#10B981', // Basic Plan (green)
+          // Free Plan in MIDDLE
+          '#94A3B8', // Free Plan (gray)
+          // Failure nodes at BOTTOM (red)
           '#EF4444', // App is Too Laggy (red)
           '#DC2626', // Too Many Ads (red)
-          // User plans (4 nodes)
-          '#94A3B8', // Free Plan (gray)
-          '#10B981', // Basic Plan (green)
-          '#059669', // Premium Plan (darker green)
-          '#047857'  // Enterprise Plan (darkest green)
+          '#EF4444', // Email Verification Error (red)
+          '#DC2626'  // Too Many Steps (red)
         ],
         label: {
           fontName: 'Inter, system-ui, sans-serif',
@@ -254,7 +266,7 @@ const OnboardingFlowchart = ({ tickets = [] }) => {
         <CardHeader>
           <CardTitle>Onboarding Flow Visualization</CardTitle>
           <CardDescription>
-            From acquisition sources → Total Users → Account Creation → Surf Cam Viewing → User Plans
+            From acquisition sources → Total Users → Account Creation → Surf Cam Viewing → User Plans (Successes at top, Free in middle, Failures at bottom)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -311,9 +323,10 @@ const OnboardingFlowchart = ({ tickets = [] }) => {
             <h4 className="text-sm font-semibold text-blue-900 mb-2">📖 How to Read This Chart:</h4>
             <ul className="text-sm text-blue-800 space-y-1">
               <li>• <strong>Stage 1:</strong> Acquisition sources (Instagram, Facebook, etc.) flow into "Total Users"</li>
-              <li>• <strong>Stage 2:</strong> Total Users split into successful account creation (green) or failures (red)</li>
-              <li>• <strong>Stage 3:</strong> Accounts created flow to surf cam viewing (blue) or encounter issues (red)</li>
+              <li>• <strong>Stage 2:</strong> Total Users split into successful account creation (green) or failures (red at bottom)</li>
+              <li>• <strong>Stage 3:</strong> Accounts created flow to surf cam viewing (blue) or encounter issues (red at bottom)</li>
               <li>• <strong>Stage 4:</strong> Users who viewed a surf cam successfully flow into different user plans</li>
+              <li>• <strong>Vertical Layout:</strong> Success plans (Enterprise, Premium, Basic) at TOP → Free users in MIDDLE → Failures in RED at BOTTOM</li>
               <li>• <strong>Node size:</strong> Larger nodes = more users</li>
               <li>• <strong>Hover:</strong> Over any flow to see exact user counts</li>
             </ul>

@@ -9,6 +9,7 @@ import { RefreshCw, Loader2, AlertTriangle, Settings } from 'lucide-react';
 import UserSentimentPet from './UserSentimentPet';
 import TicketingWindow from './TicketingWindow';
 import OnboardingFlowchart from './OnboardingFlowchart';
+import SentimentTrendChart from './SentimentTrendChart';
 
 /**
  * Main App Component for Customer Service Suite
@@ -77,8 +78,8 @@ const App = () => {
   };
 
   // Load mock data for development
-  const loadMockData = () => {
-    const mockTickets = generateMockTickets(50);
+  const loadMockData = (count = 50, sentimentRange = null) => {
+    const mockTickets = generateMockTickets(count, sentimentRange);
     setTickets(mockTickets);
     setLoading(false);
   };
@@ -263,12 +264,12 @@ const App = () => {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="dashboard" className="mt-6">
+            <TabsContent value="dashboard" className="mt-6 space-y-6">
               <div className="grid gap-6 md:grid-cols-2">
                 <div>
                   <UserSentimentPet tickets={tickets} />
                 </div>
-                <div>
+                <div className="space-y-6">
                   <Card>
                     <CardHeader>
                       <CardTitle>Ticket Overview</CardTitle>
@@ -301,8 +302,76 @@ const App = () => {
                       </div>
                     </CardContent>
                   </Card>
+
+                  {/* Mock Data Generator */}
+                  {useMockData && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">Generate Mock Data</CardTitle>
+                        <CardDescription>Create tickets with specific sentiment ranges</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-3 gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => loadMockData(20, 'critical')}
+                            className="border-red-500 text-red-600 hover:bg-red-50"
+                          >
+                            Critical
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => loadMockData(20, 'poor')}
+                            className="border-orange-500 text-orange-600 hover:bg-orange-50"
+                          >
+                            Poor
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => loadMockData(20, 'fair')}
+                            className="border-yellow-500 text-yellow-600 hover:bg-yellow-50"
+                          >
+                            Fair
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => loadMockData(20, 'good')}
+                            className="border-green-500 text-green-600 hover:bg-green-50"
+                          >
+                            Good
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => loadMockData(20, 'excellent')}
+                            className="border-cyan-500 text-cyan-600 hover:bg-cyan-50"
+                          >
+                            Excellent
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => loadMockData(50)}
+                            className="border-gray-500 text-gray-600 hover:bg-gray-50"
+                          >
+                            Mixed (50)
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Click to generate 20 tickets in each sentiment range
+                        </p>
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
               </div>
+
+              {/* Sentiment Trend Chart */}
+              <SentimentTrendChart tickets={tickets} />
             </TabsContent>
 
             <TabsContent value="tickets" className="mt-6">
@@ -329,7 +398,7 @@ const App = () => {
 };
 
 // Utility function to generate mock tickets for testing
-const generateMockTickets = (count) => {
+const generateMockTickets = (count, sentimentRange = null) => {
   const sentiments = ['Positive', 'Neutral', 'Negative'];
   const subscriptions = ['Free', 'Premium', 'Pro'];
   const cities = ['New York', 'San Francisco', 'London', 'Tokyo', 'Berlin', 'Sydney'];
@@ -354,12 +423,51 @@ const generateMockTickets = (count) => {
   ];
 
   return Array.from({ length: count }, (_, i) => {
-    const sentimentLabel = sentiments[Math.floor(Math.random() * sentiments.length)];
-    const sentimentScore = sentimentLabel === 'Positive' 
-      ? Math.random() * 0.5 + 0.5
-      : sentimentLabel === 'Negative'
-      ? Math.random() * -0.5 - 0.5
-      : Math.random() * 0.4 - 0.2;
+    let sentimentLabel;
+    let sentimentScore;
+
+    // If sentiment range is specified, use it to generate specific sentiment data
+    if (sentimentRange) {
+      switch (sentimentRange) {
+        case 'critical': // 0-19
+          sentimentScore = (Math.random() * 0.2 - 1); // -1 to -0.8
+          sentimentLabel = 'Negative';
+          break;
+
+        case 'poor': // 20-39
+          sentimentScore = (Math.random() * 0.2 - 0.4); // -0.8 to -0.6
+          sentimentLabel = 'Negative';
+          break;
+
+        case 'fair': // 40-59
+          sentimentScore = (Math.random() * 0.4 - 0.2); // -0.2 to 0.2
+          sentimentLabel = 'Neutral';
+          break;
+        case 'good': // 60-79
+          sentimentScore = (Math.random() * 0.2 + 0.2); // 0.2 to 0.4
+          sentimentLabel = 'Positive';
+          break;
+        case 'excellent': // 80-100
+          sentimentScore = (Math.random() * 0.4 + 0.6); // 0.6 to 1.0
+          sentimentLabel = 'Positive';
+          break;
+        default:
+          sentimentLabel = sentiments[Math.floor(Math.random() * sentiments.length)];
+          sentimentScore = sentimentLabel === 'Positive' 
+            ? Math.random() * 0.5 + 0.5
+            : sentimentLabel === 'Negative'
+            ? Math.random() * -0.5 - 0.5
+            : Math.random() * 0.4 - 0.2;
+      }
+    } else {
+      // Random sentiment
+      sentimentLabel = sentiments[Math.floor(Math.random() * sentiments.length)];
+      sentimentScore = sentimentLabel === 'Positive' 
+        ? Math.random() * 0.5 + 0.5
+        : sentimentLabel === 'Negative'
+        ? Math.random() * -0.5 - 0.5
+        : Math.random() * 0.4 - 0.2;
+    }
     
     const subscriptionLevel = subscriptions[Math.floor(Math.random() * subscriptions.length)];
     const cityIndex = Math.floor(Math.random() * cities.length);
@@ -371,7 +479,7 @@ const generateMockTickets = (count) => {
       PK: `CUSTOMER#${1000 + i}`,
       SK: `REVIEW#${timestamp}`,
       CustomerID: `CUST-${1000 + i}`,
-      ReviewID: `REV-${10000 + i}-${Date.now()}`,
+      ReviewID: `review-${10000 + i}`,
       ReviewTimestamp: timestamp,
       SentimentScore: sentimentScore,
       SentimentLabel: sentimentLabel,
