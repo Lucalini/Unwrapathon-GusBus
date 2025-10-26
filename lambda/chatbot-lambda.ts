@@ -11,8 +11,15 @@ interface ChatMessage {
   Text: string;
 }
 
+interface WebVisit {
+  URL: string;
+  VisitTime: string;
+  FullPageHTML: string;
+}
+
 interface ChatbotRequest {
   RawChatHistory: ChatMessage[];
+  RawWebHistory?: WebVisit[];
 }
 
 export const handler = async (event: any): Promise<any> => {
@@ -25,6 +32,22 @@ export const handler = async (event: any): Promise<any> => {
     // Parse the incoming request
     const requestBody: ChatbotRequest =
       typeof event.body === "string" ? JSON.parse(event.body) : event;
+
+    console.log(
+      "Parsed request body - RawChatHistory length:",
+      requestBody.RawChatHistory?.length
+    );
+    console.log(
+      "Parsed request body - RawWebHistory length:",
+      requestBody.RawWebHistory?.length
+    );
+    if (requestBody.RawWebHistory && requestBody.RawWebHistory.length > 0) {
+      console.log("First page URL:", requestBody.RawWebHistory[0]?.URL);
+      console.log(
+        "First page HTML length:",
+        requestBody.RawWebHistory[0]?.FullPageHTML?.length
+      );
+    }
 
     if (
       !requestBody.RawChatHistory ||
@@ -45,7 +68,8 @@ export const handler = async (event: any): Promise<any> => {
 
     // Generate chatbot response using Bedrock
     const chatbotResponse = await generateChatbotResponse(
-      requestBody.RawChatHistory
+      requestBody.RawChatHistory,
+      requestBody.RawWebHistory
     );
 
     // Create new message
@@ -85,7 +109,8 @@ export const handler = async (event: any): Promise<any> => {
 };
 
 async function generateChatbotResponse(
-  chatHistory: ChatMessage[]
+  chatHistory: ChatMessage[],
+  webHistory?: WebVisit[]
 ): Promise<string> {
   try {
     // Build the conversation context for Claude
@@ -100,17 +125,57 @@ async function generateChatbotResponse(
 
     const lastUserMessage = userMessages[userMessages.length - 1] || "";
 
+    // Build web history context if provided
+    let webContext = "";
+    if (webHistory && webHistory.length > 0) {
+      webContext = "\n\nCustomer's Recent Web Activity:\n";
+
+      webHistory.forEach((visit, index) => {
+        // Extract relevant information from HTML (simplified approach)
+        // We'll include URL and a truncated version of the HTML content
+        const truncatedHTML =
+          visit.FullPageHTML.length > 2000
+            ? visit.FullPageHTML.substring(0, 2000) + "..."
+            : visit.FullPageHTML;
+
+        // Try to extract text content from HTML (basic approach)
+        const textContent = extractTextFromHTML(truncatedHTML);
+
+        webContext += `\nPage ${index + 1}:
+- URL: ${visit.URL}
+- Visited at: ${visit.VisitTime}
+- Page content summary: ${textContent.substring(0, 500)}${
+          textContent.length > 500 ? "..." : ""
+        }
+`;
+      });
+    }
+
     const prompt = `You are a helpful, friendly customer service chatbot. You are having a conversation with a customer.
 
 Previous conversation:
-${conversationContext}
+${conversationContext}${webContext}
 
-Please provide a helpful, empathetic response to the customer's most recent message. Keep your response concise (2-3 sentences), professional, and focused on addressing their needs or concerns.
+Please provide a helpful, empathetic response to the customer's most recent message. ${
+      webHistory && webHistory.length > 0
+        ? "Consider the pages they've visited to provide more contextual and relevant assistance. If their question relates to something they saw on a specific page, reference that information."
+        : ""
+    } Keep your response concise (2-3 sentences), professional, and focused on addressing their needs or concerns.
 
 Respond with ONLY the chatbot's response text, no additional formatting or labels.`;
 
+    console.log(
+      "Web history received:",
+      webHistory ? webHistory.length : 0,
+      "pages"
+    );
+    console.log(
+      "Prompt being sent to Bedrock (first 1000 chars):",
+      prompt.substring(0, 1000)
+    );
+
     const command = new InvokeModelCommand({
-      modelId: "anthropic.claude-3-haiku-20240307-v1:0",
+      modelId: "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
       contentType: "application/json",
       accept: "application/json",
       body: JSON.stringify({
@@ -138,4 +203,29 @@ Respond with ONLY the chatbot's response text, no additional formatting or label
     // Return a default response if Bedrock fails
     return "I apologize, but I'm having trouble processing your request at the moment. Please try again or contact our support team for assistance.";
   }
+}
+
+// Helper function to extract text content from HTML
+function extractTextFromHTML(html: string): string {
+  // Remove script and style tags and their content
+  let text = html.replace(
+    /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
+    ""
+  );
+  text = text.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "");
+
+  // Remove HTML tags
+  text = text.replace(/<[^>]+>/g, " ");
+
+  // Decode HTML entities
+  text = text.replace(/&nbsp;/g, " ");
+  text = text.replace(/&amp;/g, "&");
+  text = text.replace(/&lt;/g, "<");
+  text = text.replace(/&gt;/g, ">");
+  text = text.replace(/&quot;/g, '"');
+
+  // Clean up whitespace
+  text = text.replace(/\s+/g, " ").trim();
+
+  return text;
 }

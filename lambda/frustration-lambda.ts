@@ -10,9 +10,9 @@ const bedrockClient = new BedrockRuntimeClient({});
 
 const TABLE_NAME = process.env.TABLE_NAME || "";
 
-interface WidgetSchema {
+interface FrustrationEventSchema {
   CustomerID: string;
-  ReviewSubmissionTimestamp: string;
+  FrustrationTimestamp: string;
   UserMetadata: {
     Email: string;
     SubscriptionLevel: string;
@@ -21,24 +21,26 @@ interface WidgetSchema {
       Country: string;
     };
   };
-  RawChatHistory: Array<{
-    Sender: string;
-    Timestamp: string;
-    Text: string;
-  }>;
   RawWebHistory: Array<{
     URL: string;
     VisitTime: string;
     FullPageHTML: string;
   }>;
+  FrustrationIndicators?: {
+    MouseThrashingScore?: number;
+    RapidClicks?: number;
+    TimeOnPage?: number;
+    ErrorsEncountered?: number;
+  };
 }
 
-interface DynamoSchema {
+interface DynamoFrustrationSchema {
   PK: string;
   SK: string;
   CustomerID: string;
-  ReviewID: string;
-  ReviewTimestamp: string;
+  EventID: string;
+  EventType: string;
+  EventTimestamp: string;
   SentimentScore: number;
   SentimentLabel: string;
   Summary: string;
@@ -50,51 +52,53 @@ interface DynamoSchema {
     City: string;
     Country: string;
   };
-  ChatTranscript: Array<{
-    Sender: string;
-    Timestamp: string;
-    Text: string;
-  }>;
   RecentPageVisits: Array<{
     URL: string;
     VisitTime: string;
     FullPageHTML: string;
   }>;
+  FrustrationMetrics?: {
+    MouseThrashingScore?: number;
+    RapidClicks?: number;
+    TimeOnPage?: number;
+    ErrorsEncountered?: number;
+  };
 }
 
 export const handler = async (event: any): Promise<any> => {
   console.log(
-    "Processing Lambda invoked with event:",
+    "Frustration Lambda invoked with event:",
     JSON.stringify(event, null, 2)
   );
 
   try {
-    // Parse the incoming widget schema
-    const widgetData: WidgetSchema =
+    // Parse the incoming frustration event
+    const frustrationData: FrustrationEventSchema =
       typeof event.body === "string" ? JSON.parse(event.body) : event;
 
     // Extract features using Bedrock
-    const analysisResult = await analyzeWithBedrock(widgetData);
+    const analysisResult = await analyzeWithBedrock(frustrationData);
 
     // Create DynamoDB entry
-    const dynamoEntry: DynamoSchema = {
-      PK: `CUSTOMER#${widgetData.CustomerID}`,
-      SK: `REVIEW#${widgetData.ReviewSubmissionTimestamp}`,
-      CustomerID: widgetData.CustomerID,
-      ReviewID: generateReviewId(),
-      ReviewTimestamp: widgetData.ReviewSubmissionTimestamp,
+    const dynamoEntry: DynamoFrustrationSchema = {
+      PK: `CUSTOMER#${frustrationData.CustomerID}`,
+      SK: `FRUSTRATION#${frustrationData.FrustrationTimestamp}`,
+      CustomerID: frustrationData.CustomerID,
+      EventID: generateEventId(),
+      EventType: "FRUSTRATION",
+      EventTimestamp: frustrationData.FrustrationTimestamp,
       SentimentScore: analysisResult.sentimentScore,
       SentimentLabel: analysisResult.sentimentLabel,
       Summary: analysisResult.summary,
       CustomerStatus: {
-        SubscriptionLevel: widgetData.UserMetadata.SubscriptionLevel,
+        SubscriptionLevel: frustrationData.UserMetadata.SubscriptionLevel,
         IsPayingCustomer: ["Premium", "Pro"].includes(
-          widgetData.UserMetadata.SubscriptionLevel
+          frustrationData.UserMetadata.SubscriptionLevel
         ),
       },
-      CustomerLocation: widgetData.UserMetadata.Geolocation,
-      ChatTranscript: widgetData.RawChatHistory,
-      RecentPageVisits: widgetData.RawWebHistory,
+      CustomerLocation: frustrationData.UserMetadata.Geolocation,
+      RecentPageVisits: frustrationData.RawWebHistory,
+      FrustrationMetrics: frustrationData.FrustrationIndicators,
     };
 
     // Store in DynamoDB
@@ -107,12 +111,12 @@ export const handler = async (event: any): Promise<any> => {
         "Access-Control-Allow-Origin": "*",
       },
       body: JSON.stringify({
-        message: "Review processed successfully",
-        reviewId: dynamoEntry.ReviewID,
+        message: "Frustration event recorded successfully",
+        eventId: dynamoEntry.EventID,
       }),
     };
   } catch (error) {
-    console.error("Error processing review:", error);
+    console.error("Error processing frustration event:", error);
     return {
       statusCode: 500,
       headers: {
@@ -120,45 +124,58 @@ export const handler = async (event: any): Promise<any> => {
         "Access-Control-Allow-Origin": "*",
       },
       body: JSON.stringify({
-        message: "Error processing review",
+        message: "Error processing frustration event",
         error: error instanceof Error ? error.message : "Unknown error",
       }),
     };
   }
 };
 
-async function analyzeWithBedrock(widgetData: WidgetSchema): Promise<{
+async function analyzeWithBedrock(
+  frustrationData: FrustrationEventSchema
+): Promise<{
   sentimentScore: number;
   sentimentLabel: string;
   summary: string;
 }> {
   try {
-    // Prepare chat history for analysis
-    const chatText = widgetData.RawChatHistory.map(
-      (msg) => `${msg.Sender}: ${msg.Text}`
-    ).join("\n");
-
     // Prepare web history summary
-    const webSummary = widgetData.RawWebHistory.map(
+    const webSummary = frustrationData.RawWebHistory.map(
       (visit) => `Visited ${visit.URL} at ${visit.VisitTime}`
     ).join("\n");
 
-    const prompt = `You are an AI assistant analyzing customer feedback and behavior. 
+    // Prepare frustration indicators summary
+    const frustrationMetrics = frustrationData.FrustrationIndicators
+      ? `
+Frustration Indicators:
+- Mouse Thrashing Score: ${
+          frustrationData.FrustrationIndicators.MouseThrashingScore || "N/A"
+        }
+- Rapid Clicks: ${frustrationData.FrustrationIndicators.RapidClicks || "N/A"}
+- Time on Page: ${frustrationData.FrustrationIndicators.TimeOnPage || "N/A"}s
+- Errors Encountered: ${
+          frustrationData.FrustrationIndicators.ErrorsEncountered || "N/A"
+        }
+`
+      : "";
+
+    const prompt = `You are an AI assistant analyzing user frustration events detected by our system. 
 
 Customer Information:
-- Subscription Level: ${widgetData.UserMetadata.SubscriptionLevel}
-- Location: ${widgetData.UserMetadata.Geolocation.City}, ${widgetData.UserMetadata.Geolocation.Country}
+- Subscription Level: ${frustrationData.UserMetadata.SubscriptionLevel}
+- Location: ${frustrationData.UserMetadata.Geolocation.City}, ${frustrationData.UserMetadata.Geolocation.Country}
 
-Chat Conversation:
-${chatText}
+${frustrationMetrics}
 
 Recent Web Activity:
 ${webSummary}
 
+Our system has detected signs of user frustration (e.g., rapid clicking, mouse thrashing, or other behavioral indicators).
+
 Please analyze this information and provide:
-1. A sentiment score from -1 (very negative) to 1 (very positive)
+1. A sentiment score from -1 (very negative/frustrated) to 1 (positive) - note that frustration events typically indicate negative sentiment
 2. A sentiment label (Positive, Neutral, or Negative)
-3. A brief summary of the customer's main concerns or feedback (2-3 sentences)
+3. A brief summary of the likely pain points or issues the customer is experiencing (2-3 sentences)
 
 Respond ONLY with a valid JSON object in this exact format:
 {
@@ -199,25 +216,31 @@ Respond ONLY with a valid JSON object in this exact format:
     };
   } catch (error) {
     console.error("Error calling Bedrock:", error);
-    // Return default values if Bedrock fails
+    // Return default negative values for frustration events
     return {
-      sentimentScore: 0,
-      sentimentLabel: "Neutral",
-      summary: "Unable to analyze customer feedback at this time.",
+      sentimentScore: -0.7,
+      sentimentLabel: "Negative",
+      summary:
+        "User experiencing frustration detected by behavioral indicators.",
     };
   }
 }
 
-async function storeToDynamoDB(entry: DynamoSchema): Promise<void> {
+async function storeToDynamoDB(entry: DynamoFrustrationSchema): Promise<void> {
   const command = new PutItemCommand({
     TableName: TABLE_NAME,
     Item: marshall(entry, { removeUndefinedValues: true }),
   });
 
   await dynamoClient.send(command);
-  console.log("Successfully stored entry to DynamoDB:", entry.ReviewID);
+  console.log(
+    "Successfully stored frustration entry to DynamoDB:",
+    entry.EventID
+  );
 }
 
-function generateReviewId(): string {
-  return `review-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+function generateEventId(): string {
+  return `frustration-${Date.now()}-${Math.random()
+    .toString(36)
+    .substring(2, 15)}`;
 }

@@ -62,27 +62,25 @@ export class UnwrapathonGusBusStack extends cdk.Stack {
           "bedrock:InvokeModelWithResponseStream",
         ],
         resources: [
-          "arn:aws:bedrock:*::foundation-model/anthropic.claude-3-haiku-20240307-v1:0",
+          "arn:aws:bedrock:*:*:inference-profile/us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+          "arn:aws:bedrock:*::foundation-model/anthropic.claude-sonnet-4-5-20250929-v1:0",
         ],
       })
     );
 
     // Grant permissions for AWS Marketplace models (Anthropic)
-    processingLambda.addToRolePolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: [
-          "aws-marketplace:ViewSubscriptions",
-          "aws-marketplace:Subscribe",
-        ],
-        resources: ["*"],
-        conditions: {
-          StringEquals: {
-            "aws:CalledViaLast": "bedrock.amazonaws.com",
-          },
-        },
-      })
-    );
+    const processingMarketplacePolicy = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        "aws-marketplace:ViewSubscriptions",
+        "aws-marketplace:Subscribe",
+      ],
+      resources: ["*"],
+    });
+    processingMarketplacePolicy.addCondition("StringEquals", {
+      "aws:CalledViaLast": "bedrock.amazonaws.com",
+    });
+    processingLambda.addToRolePolicy(processingMarketplacePolicy);
 
     // ========================================
     // Get Reviews Lambda Function
@@ -131,27 +129,76 @@ export class UnwrapathonGusBusStack extends cdk.Stack {
           "bedrock:InvokeModelWithResponseStream",
         ],
         resources: [
-          "arn:aws:bedrock:*::foundation-model/anthropic.claude-3-haiku-20240307-v1:0",
+          "arn:aws:bedrock:*:*:inference-profile/us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+          "arn:aws:bedrock:*::foundation-model/anthropic.claude-sonnet-4-5-20250929-v1:0",
         ],
       })
     );
 
     // Grant permissions for AWS Marketplace models (Anthropic)
-    chatbotLambda.addToRolePolicy(
+    const chatbotMarketplacePolicy = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        "aws-marketplace:ViewSubscriptions",
+        "aws-marketplace:Subscribe",
+      ],
+      resources: ["*"],
+    });
+    chatbotMarketplacePolicy.addCondition("StringEquals", {
+      "aws:CalledViaLast": "bedrock.amazonaws.com",
+    });
+    chatbotLambda.addToRolePolicy(chatbotMarketplacePolicy);
+
+    // ========================================
+    // Frustration Lambda Function
+    // ========================================
+    const frustrationLambda = new NodejsFunction(this, "FrustrationLambda", {
+      functionName: "FrustrationLambda",
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: "handler",
+      entry: path.join(__dirname, "../lambda/frustration-lambda.ts"),
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 512,
+      environment: {
+        TABLE_NAME: reviewsTable.tableName,
+      },
+      bundling: {
+        externalModules: ["@aws-sdk/*"],
+        minify: true,
+      },
+    });
+
+    // Grant Lambda permissions to write to DynamoDB
+    reviewsTable.grantWriteData(frustrationLambda);
+
+    // Grant Lambda permissions to invoke Bedrock
+    frustrationLambda.addToRolePolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         actions: [
-          "aws-marketplace:ViewSubscriptions",
-          "aws-marketplace:Subscribe",
+          "bedrock:InvokeModel",
+          "bedrock:InvokeModelWithResponseStream",
         ],
-        resources: ["*"],
-        conditions: {
-          StringEquals: {
-            "aws:CalledViaLast": "bedrock.amazonaws.com",
-          },
-        },
+        resources: [
+          "arn:aws:bedrock:*:*:inference-profile/us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+          "arn:aws:bedrock:*::foundation-model/anthropic.claude-sonnet-4-5-20250929-v1:0",
+        ],
       })
     );
+
+    // Grant permissions for AWS Marketplace models (Anthropic)
+    const frustrationMarketplacePolicy = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        "aws-marketplace:ViewSubscriptions",
+        "aws-marketplace:Subscribe",
+      ],
+      resources: ["*"],
+    });
+    frustrationMarketplacePolicy.addCondition("StringEquals", {
+      "aws:CalledViaLast": "bedrock.amazonaws.com",
+    });
+    frustrationLambda.addToRolePolicy(frustrationMarketplacePolicy);
 
     // ========================================
     // API Gateway
@@ -190,6 +237,13 @@ export class UnwrapathonGusBusStack extends cdk.Stack {
     const chatResource = api.root.addResource("chat");
     const chatIntegration = new apigateway.LambdaIntegration(chatbotLambda);
     chatResource.addMethod("POST", chatIntegration);
+
+    // POST /frustration endpoint - Record frustration event
+    const frustrationResource = api.root.addResource("frustration");
+    const frustrationIntegration = new apigateway.LambdaIntegration(
+      frustrationLambda
+    );
+    frustrationResource.addMethod("POST", frustrationIntegration);
 
     // ========================================
     // S3 Bucket for Service Suite UI
@@ -256,6 +310,12 @@ export class UnwrapathonGusBusStack extends cdk.Stack {
       value: `${api.url}chat`,
       description: "POST endpoint for chatbot conversation",
       exportName: "ReviewsApiChatEndpoint",
+    });
+
+    new cdk.CfnOutput(this, "ApiFrustrationEndpoint", {
+      value: `${api.url}frustration`,
+      description: "POST endpoint for recording frustration events",
+      exportName: "ReviewsApiFrustrationEndpoint",
     });
 
     new cdk.CfnOutput(this, "DynamoDBTableName", {
