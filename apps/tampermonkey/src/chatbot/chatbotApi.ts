@@ -3,7 +3,7 @@
  * This module handles communication with the AI chatbot service
  */
 
-import { ChatMessage } from '../types';
+import { ChatMessage, WebPageVisit } from '../types';
 
 // Real AI chatbot endpoint (AWS API Gateway)
 const CHATBOT_API_ENDPOINT = 'https://cfex7cfhal.execute-api.us-west-2.amazonaws.com/prod/chat';
@@ -14,14 +14,34 @@ export interface ChatbotResponse {
 
 /**
  * Send a message to the chatbot and get a response
+ * @param message - The user's message
+ * @param conversationHistory - The chat history
+ * @param webHistory - Optional web history for context-aware responses
  */
 export async function sendMessageToChatbot(
   message: string,
-  conversationHistory: ChatMessage[]
+  conversationHistory: ChatMessage[],
+  webHistory?: WebPageVisit[]
 ): Promise<string> {
   try {
     console.log('Sending message to chatbot:', message);
     console.log('Conversation history:', conversationHistory);
+    if (webHistory && webHistory.length > 0) {
+      console.log('Including web history:', webHistory.length, 'pages');
+    }
+
+    // Build request body according to ChatbotRequest schema
+    const requestBody: {
+      RawChatHistory: ChatMessage[];
+      RawWebHistory?: WebPageVisit[];
+    } = {
+      RawChatHistory: conversationHistory,
+    };
+
+    // Include web history if available (allows context-aware responses)
+    if (webHistory && webHistory.length > 0) {
+      requestBody.RawWebHistory = webHistory;
+    }
 
     // Call the real AI chatbot API
     const response = await fetch(CHATBOT_API_ENDPOINT, {
@@ -29,10 +49,7 @@ export async function sendMessageToChatbot(
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        message,
-        RawChatHistory: conversationHistory,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {

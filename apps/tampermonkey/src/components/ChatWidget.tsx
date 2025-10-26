@@ -3,6 +3,7 @@ import { ChatMessage } from '../types';
 import { dataCompiler } from '../services/dataCompiler';
 import { apiService } from '../services/apiService';
 import { webHistoryTracker } from '../utils/webHistoryTracker';
+import { patternDetector } from '../utils/patternDetector';
 import { sendMessageToChatbot } from '../chatbot/chatbotApi';
 import './ChatWidget.css';
 
@@ -15,12 +16,48 @@ const ChatWidget: React.FC<ChatWidgetProps> = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [autoOpenReason, setAutoOpenReason] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const lastURLRef = useRef<string>('');
 
-  // Track page visit when component mounts
+  // Track page visit and check for patterns
   useEffect(() => {
     webHistoryTracker.trackCurrentPage();
+    patternDetector.trackVisit(window.location.href);
+    lastURLRef.current = window.location.href;
+
+    // Check if we should auto-open based on patterns
+    const patternCheck = patternDetector.shouldShowHelp();
+    if (patternCheck.show && !isOpen) {
+      console.log('🤖 Auto-opening chat due to pattern detection');
+      setAutoOpenReason(patternCheck.reason || 'repeated_visits');
+      setIsOpen(true);
+      patternDetector.markPromptShown();
+    }
   }, []);
+
+  // Monitor URL changes (for SPAs)
+  useEffect(() => {
+    const checkURLChange = setInterval(() => {
+      if (window.location.href !== lastURLRef.current) {
+        console.log('🔄 URL changed, tracking visit');
+        webHistoryTracker.trackCurrentPage();
+        patternDetector.trackVisit(window.location.href);
+        lastURLRef.current = window.location.href;
+
+        // Check patterns on URL change
+        const patternCheck = patternDetector.shouldShowHelp();
+        if (patternCheck.show && !isOpen) {
+          console.log('🤖 Auto-opening chat due to pattern detection');
+          setAutoOpenReason(patternCheck.reason || 'repeated_visits');
+          setIsOpen(true);
+          patternDetector.markPromptShown();
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(checkURLChange);
+  }, [isOpen]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -28,6 +65,11 @@ const ChatWidget: React.FC<ChatWidgetProps> = () => {
   }, [messages]);
 
   const handleToggleChat = () => {
+    if (isOpen && autoOpenReason) {
+      // User is closing an auto-opened chat - mark as dismissed
+      patternDetector.markDismissed();
+      setAutoOpenReason(null);
+    }
     setIsOpen(!isOpen);
   };
 
@@ -44,9 +86,14 @@ const ChatWidget: React.FC<ChatWidgetProps> = () => {
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
 
-    // Get chatbot response
+    // Get chatbot response with web history context
     try {
-      const botResponseText = await sendMessageToChatbot(messageText, [...messages, userMessage]);
+      const webHistory = webHistoryTracker.getHistory();
+      const botResponseText = await sendMessageToChatbot(
+        messageText, 
+        [...messages, userMessage],
+        webHistory // Pass web history for context-aware responses
+      );
       const botMessage: ChatMessage = {
         Sender: 'Chatbot',
         Timestamp: new Date().toISOString(),
@@ -131,7 +178,14 @@ const ChatWidget: React.FC<ChatWidgetProps> = () => {
           <div className="chat-messages">
             {messages.length === 0 ? (
               <div className="welcome-message">
-                <p>👋 Hello! How can I help you today?</p>
+                {autoOpenReason === 'repeated_visits' ? (
+                  <>
+                    <p>👋 Hi! I noticed you've been browsing this page a few times.</p>
+                    <p>Can I help you find something or answer any questions?</p>
+                  </>
+                ) : (
+                  <p>👋 Hello! How can I help you today?</p>
+                )}
               </div>
             ) : (
               messages.map((message, index) => (
