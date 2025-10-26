@@ -5,6 +5,55 @@ import {
 
 const bedrockClient = new BedrockRuntimeClient({});
 
+// Exponential backoff configuration
+const BEDROCK_CONFIG = {
+  maxRetries: 5,
+  baseDelay: 1000, // 1 second
+  maxDelay: 30000, // 30 seconds
+};
+
+/**
+ * Implements exponential backoff with jitter for Bedrock API calls
+ */
+async function callBedrockWithBackoff<T>(
+  operation: () => Promise<T>,
+  retries = BEDROCK_CONFIG.maxRetries
+): Promise<T> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await operation();
+    } catch (error: any) {
+      // Check if this is a throttling error
+      const isThrottling =
+        error.name === "ThrottlingException" ||
+        error.$metadata?.httpStatusCode === 429;
+
+      // If it's the last attempt or not a throttling error, throw
+      if (attempt === retries || !isThrottling) {
+        throw error;
+      }
+
+      // Calculate exponential backoff with jitter
+      const exponentialDelay = Math.min(
+        BEDROCK_CONFIG.baseDelay * Math.pow(2, attempt),
+        BEDROCK_CONFIG.maxDelay
+      );
+      const jitter = Math.random() * exponentialDelay * 0.3; // Add up to 30% jitter
+      const delay = exponentialDelay + jitter;
+
+      console.log(
+        `Throttled by Bedrock. Attempt ${attempt + 1}/${
+          retries + 1
+        }. Retrying in ${Math.round(delay)}ms...`
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
+  throw new Error("Max retries exceeded");
+}
+
 interface ChatMessage {
   Sender: string;
   Timestamp: string;
@@ -174,24 +223,28 @@ Respond with ONLY the chatbot's response text, no additional formatting or label
       prompt.substring(0, 1000)
     );
 
-    const command = new InvokeModelCommand({
-      modelId: "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
-      contentType: "application/json",
-      accept: "application/json",
-      body: JSON.stringify({
-        anthropic_version: "bedrock-2023-05-31",
-        max_tokens: 500,
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        temperature: 0.7,
-      }),
+    // Use exponential backoff when calling Bedrock
+    const response = await callBedrockWithBackoff(async () => {
+      const command = new InvokeModelCommand({
+        modelId: "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+        contentType: "application/json",
+        accept: "application/json",
+        body: JSON.stringify({
+          anthropic_version: "bedrock-2023-05-31",
+          max_tokens: 500,
+          messages: [
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+          temperature: 0.7,
+        }),
+      });
+
+      return await bedrockClient.send(command);
     });
 
-    const response = await bedrockClient.send(command);
     const responseBody = JSON.parse(new TextDecoder().decode(response.body));
 
     // Extract the text content from Claude's response

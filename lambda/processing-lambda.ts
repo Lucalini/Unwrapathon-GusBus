@@ -8,6 +8,55 @@ import { marshall } from "@aws-sdk/util-dynamodb";
 const dynamoClient = new DynamoDBClient({});
 const bedrockClient = new BedrockRuntimeClient({});
 
+// Exponential backoff configuration
+const BEDROCK_CONFIG = {
+  maxRetries: 5,
+  baseDelay: 1000, // 1 second
+  maxDelay: 30000, // 30 seconds
+};
+
+/**
+ * Implements exponential backoff with jitter for Bedrock API calls
+ */
+async function callBedrockWithBackoff<T>(
+  operation: () => Promise<T>,
+  retries = BEDROCK_CONFIG.maxRetries
+): Promise<T> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await operation();
+    } catch (error: any) {
+      // Check if this is a throttling error
+      const isThrottling =
+        error.name === "ThrottlingException" ||
+        error.$metadata?.httpStatusCode === 429;
+
+      // If it's the last attempt or not a throttling error, throw
+      if (attempt === retries || !isThrottling) {
+        throw error;
+      }
+
+      // Calculate exponential backoff with jitter
+      const exponentialDelay = Math.min(
+        BEDROCK_CONFIG.baseDelay * Math.pow(2, attempt),
+        BEDROCK_CONFIG.maxDelay
+      );
+      const jitter = Math.random() * exponentialDelay * 0.3; // Add up to 30% jitter
+      const delay = exponentialDelay + jitter;
+
+      console.log(
+        `Throttled by Bedrock. Attempt ${attempt + 1}/${
+          retries + 1
+        }. Retrying in ${Math.round(delay)}ms...`
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
+  throw new Error("Max retries exceeded");
+}
+
 const TABLE_NAME = process.env.TABLE_NAME || "";
 
 interface WidgetSchema {
@@ -167,30 +216,46 @@ Respond ONLY with a valid JSON object in this exact format:
   "summary": "<your summary here>"
 }`;
 
-    const command = new InvokeModelCommand({
-      modelId: "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
-      contentType: "application/json",
-      accept: "application/json",
-      body: JSON.stringify({
-        anthropic_version: "bedrock-2023-05-31",
-        max_tokens: 1000,
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-      }),
+    // Use exponential backoff when calling Bedrock
+    const response = await callBedrockWithBackoff(async () => {
+      const command = new InvokeModelCommand({
+        modelId: "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+        contentType: "application/json",
+        accept: "application/json",
+        body: JSON.stringify({
+          anthropic_version: "bedrock-2023-05-31",
+          max_tokens: 1000,
+          messages: [
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+        }),
+      });
+
+      return await bedrockClient.send(command);
     });
 
-    const response = await bedrockClient.send(command);
     const responseBody = JSON.parse(new TextDecoder().decode(response.body));
 
     // Extract the text content from Claude's response
-    const textContent = responseBody.content[0].text;
+    let textContent = responseBody.content[0].text;
+
+    // Remove markdown code fences if present
+    textContent = textContent.trim();
+    if (textContent.startsWith("```json")) {
+      textContent = textContent
+        .replace(/^```json\s*\n/, "")
+        .replace(/\n```\s*$/, "");
+    } else if (textContent.startsWith("```")) {
+      textContent = textContent
+        .replace(/^```\s*\n/, "")
+        .replace(/\n```\s*$/, "");
+    }
 
     // Parse the JSON from the response
-    const analysisResult = JSON.parse(textContent);
+    const analysisResult = JSON.parse(textContent.trim());
 
     return {
       sentimentScore: analysisResult.sentimentScore,
